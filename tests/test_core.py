@@ -1,7 +1,9 @@
 from __future__ import annotations
-import copy,csv,itertools,json,sys,unittest
+import copy,csv,itertools,json,shutil,sys,tempfile,unittest
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+ARTIFACT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ARTIFACT))
+sys.path.insert(0,str(ARTIFACT/'src'))
 from model import Graph,Edge,parse,strict_json
 from producer import produce,summarize
 from checker import verify,reference_summary
@@ -10,6 +12,7 @@ from raw_oracle import raw_fair_bad_run
 from summary_oracle import exact_summary
 from interfaces import bind,close_join,export,join_exports,module_graph,validate_family
 from refinement import check_refinement
+import reproduce as reproduction
 from fixtures import (named,model,strong_modules,random_families,quorum_obligations,
                       expanded_role_model)
 
@@ -107,6 +110,90 @@ class ContractTests(unittest.TestCase):
         for patch in ({'states':True},{'tasks':9},{'states':129},{'ports':[]},
                       {'edges':[[0,0,-1,False]]},{'edges':[[0,0,0,0]]}):
             with self.assertRaises(ValueError):parse({**base,**patch})
+
+        # The verified POSIX path succeeds, while a platform without the
+        # resource API is rejected before any child process starts.
+        reproduction._require_supported_environment()
+        saved_resource=reproduction.resource
+        try:
+            reproduction.resource=None
+            with self.assertRaisesRegex(RuntimeError,'Native Windows is not supported'):
+                reproduction._require_supported_environment()
+        finally:
+            reproduction.resource=saved_resource
+
+        # Resume planning distinguishes actual execution from validated reuse.
+        # The retained bundles supply deterministic fixtures; no campaign is run
+        # by this unit test.  Zero, one, and all completed chunks must all lead
+        # to the same frozen scientific totals after pending chunks are supplied.
+        jobs=reproduction._jobs();source=ARTIFACT/'results'
+        def copy_bundle(destination,job):
+            for item in reproduction._required_suite_paths(source,job):
+                shutil.copy2(item,destination/item.name)
+        def validate_generated_summary(destination,reused,pending,invalid,suites):
+            # Isolated unit fixture: these receipts model which runner calls would
+            # occur; production summaries receive receipts only from subprocesses
+            # that actually ran.  This catches the former fixed-20-command bug.
+            shutil.copy2(source/'tests.stderr.txt',destination/'tests.stderr.txt')
+            result=reproduction._aggregate_suites(suites)
+            result.update({
+                'execution_mode':'resume',
+                'commands_executed_this_run':[
+                    {'tag':'tests','exit_code':0},
+                    *({'tag':reproduction._job_tag(job),'exit_code':0} for job in pending),
+                ],
+                'results_reused_after_validation':[
+                    {key:value for key,value in item.items() if key!='result'}
+                    for item in reused
+                ],
+                'invalid_resume_records_recomputed':invalid,
+            })
+            reproduction._validate_result(result,destination,jobs)
+            path=destination/'summary.json'
+            path.write_text(json.dumps(result,indent=2)+'\n')
+            return json.loads(path.read_text())
+        for completed in (0,1,len(jobs)):
+            with self.subTest(resume_completed=completed), tempfile.TemporaryDirectory() as rawdir:
+                destination=Path(rawdir)
+                for job in jobs[:completed]:copy_bundle(destination,job)
+                reused,pending,invalid=reproduction._classify_resume(destination,jobs)
+                self.assertEqual((len(reused),len(pending),len(invalid)),
+                                 (completed,len(jobs)-completed,0))
+                for job in pending:copy_bundle(destination,job)
+                suites=[reproduction._validate_suite_bundle(destination,job) for job in jobs]
+                summary=validate_generated_summary(destination,reused,pending,invalid,suites)
+                for key,value in reproduction.EXPECTED_TOTALS.items():
+                    self.assertEqual(summary[key],value)
+                transfer=next(item for item in suites if item['suite']=='transfer')
+                self.assertEqual((transfer['verdict_cases'],transfer['nonlive']),(2038,1216))
+
+        # A partial marker is not trusted. Missing logs and damaged JSON are
+        # classified for recomputation, then the complete bundle revalidates.
+        damages=(('missing-log','named'),('corrupt-json','raw'),
+                 ('nonempty-stderr','scaling'),('wrong-core-range','core-3-0-2000'))
+        for damage,target in damages:
+            with self.subTest(resume_damage=damage), tempfile.TemporaryDirectory() as rawdir:
+                destination=Path(rawdir)
+                for job in jobs:copy_bundle(destination,job)
+                if damage=='missing-log':
+                    (destination/'named.stderr.txt').unlink()
+                elif damage=='corrupt-json':
+                    (destination/'raw.json').write_text('{broken')
+                elif damage=='nonempty-stderr':
+                    (destination/'scaling.stderr.txt').write_text('unexpected warning\n')
+                else:
+                    path=destination/'core-3-0-2000.csv'
+                    rows=path.read_text().splitlines()
+                    fields=rows[1].split(',');fields[0]='9999';rows[1]=','.join(fields)
+                    path.write_text('\n'.join(rows)+'\n')
+                reused,pending,invalid=reproduction._classify_resume(destination,jobs)
+                self.assertEqual([reproduction._job_tag(job) for job in pending],[target])
+                self.assertEqual(len(reused),len(jobs)-1);self.assertEqual(len(invalid),1)
+                copy_bundle(destination,pending[0])
+                suites=[reproduction._validate_suite_bundle(destination,job) for job in jobs]
+                summary=validate_generated_summary(destination,reused,pending,invalid,suites)
+                for key,value in reproduction.EXPECTED_TOTALS.items():
+                    self.assertEqual(summary[key],value)
     def test_certificate_mutations(self):
         cases=named();mutants=[]
         g=parse(cases['nonjoint-capacity']);c=produce(g)
@@ -145,6 +232,38 @@ class ContractTests(unittest.TestCase):
         self.assertNotEqual(ia['divergence'],ib['divergence'])
         self.assertFalse(produce(bind([diverge])[0])['live'])
         self.assertTrue(produce(bind([terminate])[0])['live'])
+
+        # D(p) may not cross another port before entering a hidden loop.  With
+        # F empty, p->q followed by q->u,u->u gives D(p)=false and D(q)=true;
+        # p is nevertheless nonlive because q is reachable.  Direct p->u is the
+        # positive control.  Both change interpretations agree because all edges
+        # here are ordinary.
+        via_port_1=model(4,0,[(0,1,0,False)],ports=(0,1),goals=(3,))
+        via_port_2=model(4,0,[(1,2,0,False),(2,2,0,False)],ports=(0,1),goals=(3,))
+        self.assertEqual(export(via_port_1)['divergence'],[])
+        self.assertEqual(export(via_port_2)['divergence'],[1])
+        graph,bound=bind([via_port_1,via_port_2])
+        self.assertEqual(bound['arcs'],[[0,1,0,False]])
+        self.assertEqual(bound['divergence'],[1])
+        self.assertEqual(bound,summarize(graph));self.assertEqual(bound,reference_summary(graph))
+        self.assertEqual(bound,exact_summary(graph))
+        for finite in (False,True):
+            certificate=produce(graph,finite)
+            self.assertFalse(certificate['live']);self.assertTrue(verify(graph,certificate))
+
+        direct=model(4,0,[(0,2,0,False),(2,2,0,False)],ports=(0,1),goals=(3,))
+        direct_graph,direct_bound=bind([direct])
+        self.assertEqual(export(direct)['divergence'],[0])
+        # The unused exact port q is a true port deadlock and is completed
+        # only at global closure; there is still no ordinary arc out of p.
+        self.assertEqual(direct_bound['arcs'],[[1,1,0,False]])
+        self.assertEqual(direct_bound['divergence'],[0])
+        self.assertEqual(direct_bound,summarize(direct_graph))
+        self.assertEqual(direct_bound,reference_summary(direct_graph))
+        self.assertEqual(direct_bound,exact_summary(direct_graph))
+        for finite in (False,True):
+            certificate=produce(direct_graph,finite)
+            self.assertFalse(certificate['live']);self.assertTrue(verify(direct_graph,certificate))
 
         # Enabledness: same loop, divergence and outgoing flag; a goal edge enables f.
         loop=model(2,1,[(0,0,0,False)])

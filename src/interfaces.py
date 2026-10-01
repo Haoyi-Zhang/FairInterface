@@ -59,7 +59,12 @@ def module_graph(data: dict) -> tuple[Graph, list[int], list[bool]]:
 
 
 def export(data: dict, independent: bool = False) -> dict:
-    """Export the raw five-field interface in canonical list order."""
+    """Export the raw five-field interface in canonical list order.
+
+    The divergence field at port p only covers an ordinary infinite path whose
+    first edge enters this module's interior and whose later states remain there.
+    Reaching another port first is represented by a summary arc to that port.
+    """
     graph, enabled, outgoing = module_graph(data)
     result = (reference_summary if independent else summarize)(graph)
     return {

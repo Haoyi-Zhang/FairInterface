@@ -39,7 +39,10 @@ fairly unless explicitly selected into the task set. This is a declarative
 finite transition system, not an automatic extraction from a distributed program.
 
 Open summaries preserve ordinary/change arc kind, reachability, union capacity,
-hidden fair divergence, raw port enabling masks and outgoing flags. Raw exports
+hidden fair divergence, raw port enabling masks and outgoing flags. Hidden
+divergence at port `p` requires an ordinary infinite path whose first edge enters
+the private interior and whose every later state remains interior; a path that
+first reaches another port is represented by a summary arc to that port. Raw exports
 are joined componentwise by union/OR; `src/interfaces.py` exposes this operation
 separately from the one global closure that adds disabled-task credit and genuine
 port-deadlock loops. Binding may add transitions at exact shared ports but may not
@@ -106,7 +109,10 @@ The retained fixture maps a 29-state, 132-raw-edge scheduler expansion to the
 reflection, enabledness, service reflection, or change reflection. A sixth
 regression maps a truly deadlocked concrete initial to an abstract state whose
 only edge reaches a goal; it is rejected specifically because the concrete
-semantic stutter has no match. The separate `transfer` campaign screens 22,186
-tiny relation candidates, accepts 1,358, and checks 2,116 unrestricted or
-finite-change implications for the accepted relations. These are finite
-model-level checks, not a source-level protocol refinement.
+semantic stutter has no match. The separate `transfer` campaign's retained summary records 22,186 tiny
+relation candidates, 1,358 accepted relations, 2,116 unrestricted or
+finite-change implications, 2,038 model verdicts, and 1,216 nonlive verdicts.
+The last two counts are aggregate fields in `results/transfer.json` and its stdout
+receipt; `results/transfer.csv` contains two family summaries rather than
+per-model rows. They were not recomputed by the targeted definition/resume repair.
+These are finite model-level checks, not a source-level protocol refinement.

@@ -22,8 +22,9 @@ def exact_summary(g: Graph) -> dict:
 
     Ordinary paths stop at their first port after departure.  For each ordered
     port pair, all reachable path masks are explored and then unioned.  Hidden
-    divergence is checked by explicit color-accumulating loops wholly inside the
-    sealed interior.
+    divergence requires the first edge after the source port to enter the sealed
+    interior; every later state stays inside.  It is checked by explicit
+    color-accumulating loops wholly inside that interior.
     """
     _check_budget(g)
     ports = set(g.ports)

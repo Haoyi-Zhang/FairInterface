@@ -17,7 +17,7 @@ proof-assistant derivation. Paths are relative to the standalone artifact root.
 
 | Article claim | Mathematical obligation | Primary implementation | Independent checks | Retained evidence |
 |---|---|---|---|---|
-| Lemma `lem:recurrence` and Theorem `thm:boundary` | A fair pending run is either hidden interior divergence or a reachable color-complete recurrent port component | `src/producer.py:summarize`, `produce` | `src/checker.py:reference_summary`, `src/summary_oracle.py:exact_summary`, and interface-free `src/oracle.py:fair_bad_run` | `results/summary.json`, all suite CSV files |
+| Lemma `lem:recurrence` and Theorem `thm:boundary` | A fair pending run is either divergence whose first step leaves its source port for the interior and never returns to any port, or a reachable color-complete recurrent port component | `src/producer.py:summarize`, `produce` | `src/checker.py:reference_summary`, `src/summary_oracle.py:exact_summary`, interface-free `src/oracle.py:fair_bad_run`, and the `p -> q -> u -> u` locality regression | `results/summary.json`; targeted `results/tests.stderr.txt`; suite CSVs except that transfer verdict/nonlive counts are aggregate-only |
 | Corollary `cor:finite` | Prefixes may use marked connectors; the recurrent suffix is ordinary | mode-specific filtering in `src/producer.py` and `src/checker.py` | whole-graph and raw-semantics oracles independently filter recurrent marked edges | `results/named.csv`, `results/raw.csv`, `results/transfer.csv` |
 | Lemma `lem:elimination` | Snapshot vertex elimination preserves first-return existence and union capacity | `src/checker.py:reference_summary` | graph-search producer and mask-product summary oracle | 310,463 comparisons recorded in `results/summary.json` |
 
@@ -27,7 +27,7 @@ proof-assistant derivation. Paths are relative to the standalone artifact root.
 |---|---|---|---|---|
 | Definition `def:family` | Exact shared ports/goals, disjoint sealed interiors, additive edge union | `src/interfaces.py:validate_family`, `module_graph` | overlap rejection and unmentioned-state ownership tests | `results/tests.stderr.txt` |
 | Raw join algebra | Componentwise union/OR is associative, commutative, and idempotent before closure | `src/interfaces.py:join_exports` | `test_raw_interface_join_algebra` checks permutations, grouping, and idempotence | `results/tests.stderr.txt` |
-| Theorem `thm:binding` | `Summary(union modules) = close(join(exports))` | `src/interfaces.py:export`, `join_exports`, `close_join`, `bind` | elimination export, direct summary oracle, and three exhaustive binding families | `results/modules.csv`, `results/binding.csv` |
+| Theorem `thm:binding` | `Summary(union modules) = close(join(exports))`, including exact union of local divergence under the first-step-interior definition | `src/interfaces.py:export`, `join_exports`, `close_join`, `bind` | elimination export, direct summary oracle, three exhaustive binding families, and the cross-port/direct-entry divergence controls in `test_interface_component_separations` | `results/modules.csv`, `results/binding.csv`, targeted `results/tests.stderr.txt` |
 | Theorem `thm:fields` | Removing reachability/capacity, divergence, enabledness, or outgoing existence loses exactness | exported-field comparison and closed verdicts | same-context field-separation tests and 64 fixed-entry capacity contexts | `results/tests.stderr.txt` |
 
 ## Certificate and information layer
@@ -41,9 +41,17 @@ proof-assistant derivation. Paths are relative to the standalone artifact root.
 
 ## Validation inventory and trust boundary
 
-The clean controller in `reproduce.py` executes 22 unit tests and 19 bounded
-campaign chunks sequentially. It fails on suite-count drift, result-count drift,
-nonzero exits, oracle disagreement, or certificate rejection. The five decision
+A clean controller invocation in `reproduce.py` executes 22 unit tests and 19
+bounded campaign chunks sequentially. A resumed invocation always reruns the
+current tests, validates each reused suite's JSON, exact CSV header/content range,
+stdout receipt, empty stderr, suite tag, frozen case count, source parameters, and
+record-by-record generated JSONL inputs, and records reuse separately from commands
+actually executed. Missing or damaged bundles are recomputed. Unit fixtures cover
+zero/one/all completed inventories and four damage classes; retained targeted runs
+cover all-reuse and actual single-suite recomputation. It fails on suite-count drift,
+result-count drift, nonzero exits,
+oracle disagreement, certificate rejection, or an incomplete execution/reuse
+partition. The five decision
 paths intentionally share the declared mathematical semantics but separate major
 implementation choices:
 

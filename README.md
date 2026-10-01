@@ -10,8 +10,34 @@ The artifact is not a Byzantine protocol implementation, deployment benchmark,
 proof-assistant development, or source-code model extractor. Its guarantees apply
 only to the supplied finite JSON semantics: fixed task identities, exact ports,
 sealed interiors, additive port wiring, and weak fairness. A synthetic refinement
-fixture and an exhaustive tiny-model family exercise the paper's sufficient
-transfer rule; neither is a refinement of a real protocol.
+fixture and a tiny-model family exercise the paper's sufficient transfer rule;
+neither is a refinement of a real protocol.
+
+## Supported execution environment
+
+The reproduction entry point uses POSIX process groups and Python's `resource`
+module to enforce child timeouts and report process resource use. The verified
+path for the current targeted validation was:
+
+- Linux on x86-64;
+- CPython 3.13.5;
+- the Python standard library only;
+- one scientific child process at a time.
+
+Native Windows does not provide the required `resource` and process-group APIs,
+so `reproduce.py` exits with a clear unsupported-platform message rather than
+failing during import; the unit suite simulates the missing-resource path. A
+Linux environment is the documented runnable path.
+macOS has an explicit `ru_maxrss` bytes-to-KiB conversion in the controller but
+was not tested here; WSL was also not tested.
+
+Every new `summary.json` records the operating system, machine, Python
+implementation/version, interpreter basename, process-group mechanism, the
+native `ru_maxrss` unit, and the reported RSS unit. Reported peak RSS is normalized
+to KiB. The retained historical clean campaign predates this environment capture:
+its OS and interpreter are therefore recorded as unknown rather than reconstructed.
+Its already reported RSS figures remain labeled as KiB because that is how the
+historical record stored them.
 
 ## One-command reproduction
 
@@ -21,12 +47,11 @@ From this directory:
 python3 reproduce.py --output reproduced
 ```
 
-The output directory must not already exist unless `--resume` is explicitly
-selected. A clean run executes 22 unit-test methods and 19 bounded campaign chunks
-sequentially. It writes retained inputs, raw CSV/JSON rows, certificates,
-per-command logs, and `summary.json`. Before accepting the run, the controller
-checks the exact suite inventory, all deterministic totals, all command exit
-codes, and the 22-test receipt. Expected deterministic totals are:
+A clean run requires a new output directory and executes 22 unit-test methods plus
+19 bounded campaign chunks sequentially. It writes retained inputs, CSV/JSON
+results, certificates, per-command logs, and `summary.json`. Before accepting the
+run, the controller checks the exact suite inventory, deterministic totals,
+command exits, and the 22-test receipt. Expected deterministic totals are:
 
 - 244,828 producer/checker verdict cases;
 - 310,463 direct summary-oracle comparisons;
@@ -42,10 +67,52 @@ codes, and the 22-test receipt. Expected deterministic totals are:
 - zero summary, verdict, certificate, transfer, normalization, or oracle
   mismatches.
 
-The retained clean run recorded 66.095382 seconds wall time, 75.520377 child CPU
-seconds, 1.277129 controller CPU seconds, 103,084 KiB peak child RSS, and 92,960
-KiB peak controller RSS. The two RSS values are separate process maxima, not a
-simultaneous sum. Only one scientific child ran at a time.
+The transfer suite's 2,038 model-verdict and 1,216 nonlive counts are retained
+aggregate fields in `results/transfer.json` and `results/transfer.stdout.txt`.
+`results/transfer.csv` contains two family summaries, not one row per model. Those
+two aggregate counts were not recomputed during the targeted definition/resume
+repair and must not be described as an independent per-model recheck.
+
+The retained historical clean run reports 66.095382 seconds wall time, 75.520377
+child CPU seconds, 1.277129 controller CPU seconds, 103,084 KiB peak child RSS,
+and 92,960 KiB peak controller RSS. The two RSS values are separate process
+maxima, not a simultaneous sum. The run's OS and interpreter were not captured.
+
+## Resume contract
+
+Resume is explicit:
+
+```bash
+python3 reproduce.py --output reproduced --resume
+```
+
+A `.json` marker alone is never trusted. Before a campaign chunk is skipped, the
+controller validates all of the following:
+
+- result JSON, CSV, stdout log, and stderr log are present and readable, and a
+  completed suite's stderr log is empty;
+- the suite name matches the expected campaign parameters (`n`, `start`, and
+  `stop` are encoded in each core-suite name);
+- the frozen case count, exact CSV header, and CSV row count match the suite;
+- every core CSV row lies in its named encoding range and covers each permitted
+  port-set/initial combination exactly once;
+- the stdout JSON receipt equals the result JSON, and the two transfer-family CSV
+  aggregates agree with the transfer JSON fields;
+- generated-input JSONL files for the closed and module suites parse record by
+  record, have the expected top-level types, and have the expected line counts.
+
+Missing or damaged bundles are recomputed. Unit tests are always rerun against the
+current source. `commands_executed_this_run` contains only commands really run in
+the current invocation. Validated skips appear separately under
+`results_reused_after_validation`, with their source parameters and checked files;
+no command receipt is invented for reuse. Unit tests cover zero, one, and all
+chunks already complete, plus a missing log, corrupt JSON, nonempty stderr, and a
+core CSV outside its named source range; each repaired plan preserves the frozen
+scientific totals. The actual all-completed resume receipt is retained under
+`results/resume-validation/summary.json`; it executed only the current tests and
+validated/reused all 19 campaign bundles. A second targeted run deliberately made
+`named.stderr.txt` nonempty, reran only tests and `named`, reused the other 18
+bundles, and is recorded in `results/resume-validation/damaged-named-summary.json`.
 
 ## Focused commands
 
@@ -83,10 +150,9 @@ external protocol was abstracted faithfully.
 - `src/fixtures.py`: named fixtures, including the scheduler-expanded refinement.
 - `src/campaign.py`: deterministic exhaustive/generated campaigns.
 - `tests/test_core.py`: 22 contract, algebra, separation, reference, refinement,
-  and corruption tests.
+  resume, and corruption tests.
 - `inputs/`: named scientific fixtures.
-- `results/`: retained clean inputs, raw rows, certificates, command logs, and
-  resource records.
+- `results/`: retained scientific inputs/results plus targeted validation records.
 - `proofs/core-argument.md`: proof obligations and declared boundaries.
 - `docs/model-format.md`: input, output, interface-algebra, oracle, and refinement
   contracts.
@@ -109,7 +175,8 @@ raw campaign also tests parsing/normalization-sensitive verdicts. All paths stil
 implement the same mathematical specification and are not independent human
 proofs.
 
-The refinement checker validates a supplied finite relation and the transfer
-campaign exhausts a small family; neither derives an abstraction from source
-code. Agreement is strong finite implementation evidence, not a machine-checked
-general theorem, independent review, or evidence about an unprovided protocol.
+The refinement checker validates a supplied finite relation and the retained
+transfer campaign covers a small family; neither derives an abstraction from
+source code. Agreement is strong finite implementation evidence, not a
+machine-checked general theorem, independent review, or evidence about an
+unprovided protocol.

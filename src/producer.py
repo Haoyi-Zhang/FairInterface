@@ -95,6 +95,9 @@ def summarize(g: Graph) -> dict:
         if owner[u] == owner[v]:
             j=owner[u];masks[j] |= mask;cyclic[j]=True
     accepting = {u for u in inside if cyclic[owner[u]] and masks[owner[u]] == g.full}
+    # Hidden divergence at p must take its first edge into the interior and
+    # thereafter remain there.  forward[p] is seeded only by p->inside edges and
+    # closes only over inside->inside edges, so another port can never be crossed.
     divergence = [p for p in g.ports if forward[p] & accepting]
     return {'arcs':arcs, 'divergence':divergence}
 

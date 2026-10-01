@@ -51,7 +51,15 @@ def reference_summary(g: Graph) -> dict:
         if e.src in owner and e.dst in owner and owner[e.src]==owner[e.dst]:
             j=owner[e.src];masks[j] |= e.color;cyclic[j]=True
     good={u for u in interior if cyclic[owner[u]] and masks[owner[u]]==g.full}
-    return {'arcs':arcs, 'divergence':[p for p in g.ports if any(reach[p][v] for v in good)]}
+    # Require the first step after p to enter the interior, then use only
+    # interior-eliminated reachability.  A route p->q->... through another port
+    # is represented by the p->q summary arc plus divergence at q, not at p.
+    divergence=[]
+    for p in g.ports:
+        entries={e.dst for e in ordinary if e.src==p and e.dst in owner}
+        if any(reach[entry][v] for entry in entries for v in good):
+            divergence.append(p)
+    return {'arcs':arcs, 'divergence':divergence}
 
 
 def check_lasso(g: Graph, witness: dict, finite: bool) -> None:

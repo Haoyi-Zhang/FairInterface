@@ -7,7 +7,11 @@
     "peak_child_rss_kib": 103084,
     "peak_controller_rss_kib": 92960,
     "max_concurrent_scientific_workers": 1,
-    "source": "results/summary.json"
+    "source": "results/summary.json",
+    "environment": {
+      "status": "unknown",
+      "reason": "OS and interpreter metadata were not captured by the historical clean run; the existing KiB fields are retained without inferring the platform."
+    }
   },
   "known_instrumented_cumulative_cpu_seconds": 821.302500257,
   "known_components": [

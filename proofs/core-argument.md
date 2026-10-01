@@ -140,8 +140,9 @@ connectors are direct port edges. The closed summary records:
 
 - `R_z(p,q)`: existence of a first-return arc of kind `z` (ordinary or marked);
 - `C_z(p,q)`: union of all fairness colors occurring on all such excursions;
-- `D(p)`: existence of a fair infinite ordinary run that departs `p` into the
-  interior and never reaches another port.
+- `D(p)`: existence of a fair infinite ordinary run `p,e0,v1,e1,...` with
+  `vi` interior for every `i >= 1`.  Thus the first edge enters the interior and
+  the run never crosses another port before the hidden recurrence.
 
 A capacity is a union over possible witnesses. It is not asserted that one
 excursion realizes all stored colors.
@@ -188,10 +189,12 @@ A closed normalized model has a fair goal-avoiding run exactly when either:
 1. a reachable port has `D`, or
 2. a reachable cyclic SCC of the summary graph has capacity union equal to `F`.
 
-For necessity, split by the number of port visits. Finitely many port visits
-produce a hidden interior suffix witnessed by `D`. Infinitely many visits yield
-recurrent macroarcs; every infinitely recurring concrete color lies on one of
-those arcs, so their recurrent support is an accepting summary SCC.
+For necessity, split by the number of port visits. With finitely many visits,
+let `p` be the last port: the suffix beginning at `p` takes its first edge into
+the interior and every later state is interior, hence witnesses `D(p)`.
+Infinitely many visits yield recurrent macroarcs; every infinitely recurring
+concrete color lies on one of those arcs, so their recurrent support is an
+accepting summary SCC.
 
 For sufficiency, `D` directly supplies an interior suffix. In an accepting
 summary SCC, choose for each task a macroarc whose capacity contains it and a
@@ -220,7 +223,8 @@ port enabledness and outgoing-edge existence are computed.
 Each module exports the raw interface `(R, U, D, A, O)`:
 
 - `R` and raw union capacity `U` for ordinary excursions and marked connectors;
-- `D` for hidden fair ordinary divergence;
+- `D` for hidden fair ordinary divergence, using the same first-step condition:
+  after leaving source port `p`, every state is in that module's private interior;
 - `A(p)`, the union of raw services on all module edges leaving `p`, including
   edges to goals;
 - `O(p)`, whether any raw module edge leaves `p`.
@@ -245,10 +249,17 @@ divergence is unchanged.
 Every first-return excursion belongs to one module because interiors are sealed;
 its unique port-source edge receives exactly the common post-wiring disabled-task
 credit. Union over concrete witnesses commutes with adding that common credit.
-Interior labels are unchanged. A hidden infinite suffix stays in one module
-interior. A port is a genuine global deadlock exactly when every outgoing flag is
-false. Goal edges affect `A` and `O` but do not create pending excursions. These
-observations prove the fieldwise equality
+Interior labels are unchanged. For divergence, a global `D(p)` witness enters
+one private interior on its first edge and remains there forever. Every edge
+incident to that interior belongs to its owner, so the whole witness is a local
+`D_i(p)` witness; the converse inclusion is immediate. Hence global `D` is the
+union of local `D_i`. A path `p -> q -> u -> u` with ports `p,q` and interior
+`u` therefore has `D(p)=false` and `D(q)=true`: nonliveness from `p` is represented
+by the summary arc `p -> q` followed by reachable `D(q)`. In the direct control
+`p -> u -> u`, `D(p)=true`. This argument is unchanged in finite-change mode
+because all hidden edges are ordinary. A port is a genuine global deadlock
+exactly when every outgoing flag is false. Goal edges affect `A` and `O` but do
+not create pending excursions. These observations prove the fieldwise equality
 
 `Summary(union_i M_i) = B(sqcup_i Interface(M_i))`
 
@@ -408,8 +419,9 @@ The retained clean campaign reports:
   checked unrestricted or finite-change implications; and
 - 22 unit-test methods covering normalization order, the raw oracle, reference
   inventory, schema rejection, certificate corruption, raw-interface algebra,
-  regrouping, component separations, fixed-entry lower-bound contexts, ownership,
-  strong fairness, refinement failures, and deadlock semantics.
+  regrouping, component separations (including the `p -> q` hidden-divergence
+  locality regression), fixed-entry lower-bound contexts, ownership, strong
+  fairness, refinement failures, deadlock semantics, and resume-record validation.
 
 These checks validate implementations over a finite deterministic campaign. The
 producer and checker share the parser and mathematical specification; the direct
