@@ -1,17 +1,21 @@
 # Late-Bound Fairness Interfaces for Finite-State Reconfiguration
 
-This directory is a standalone, standard-library-only artifact for the paper. It
+The scientific checks in this standalone artifact use the Python standard library. It
 checks task-based weakly fair termination in declared finite transition systems,
 constructs open and closed boundary summaries, emits positive or negative
 certificates, and validates the implementation through structurally different
 summary, whole-graph, raw-semantics, and transfer checks.
 
-The artifact is not a Byzantine protocol implementation, deployment benchmark,
-proof-assistant development, or source-code model extractor. Its guarantees apply
-only to the supplied finite JSON semantics: fixed task identities, exact ports,
-sealed interiors, additive port wiring, and weak fairness. A synthetic refinement
-fixture and a tiny-model family exercise the paper's sufficient transfer rule;
-neither is a refinement of a real protocol.
+Its finite JSON semantics use fixed task identities, exact ports, sealed interiors,
+additive port wiring and weak fairness. The synthetic refinement fixture and tiny
+model family exercise the paper's sufficient transfer rule. Connecting protocol
+source code to that model requires a separate refinement.
+
+## Vector schematics
+
+`python figures/draw_schematics.py --outdir ../paper/figures` regenerates both
+exact-port diagrams directly as embedded-font vector PDFs. This optional plotting
+step requires Matplotlib; scientific checks remain standard-library-only.
 
 ## Supported execution environment
 
