@@ -116,6 +116,5 @@ The calibration supports four conservative conclusions.
 Only bibliographic facts and technical ideas needed for comparison are reused by
 citation and paraphrase. No external paper text, figure, code, benchmark, or PDF
 bytes are redistributed. The artifact's executable evidence is locally generated
-from declared finite models. Citation does not imply collaboration, author
-approval, theorem endorsement, or inheritance of any proof. The full source
-inventory and stable scholarly links are in `external_resources.csv`.
+from declared finite models. The full source inventory and stable scholarly links
+are in `external_resources.csv`.
