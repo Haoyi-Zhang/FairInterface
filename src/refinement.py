@@ -2,7 +2,8 @@
 
 This checks a supplied total state map between two raw weak-service models.  It
 is deliberately narrower than a general simulation framework and establishes
-only the conditions stated by Proposition 2.4 of the accompanying paper.
+only the conditions stated by the paper's Abstraction transfer proposition
+(LaTeX label ``prop:transfer``).
 
 A true non-goal deadlock denotes an infinite task-free stutter in the raw
 semantics.  The checker therefore totalizes such states before matching steps.
